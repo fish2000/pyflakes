@@ -740,6 +740,8 @@ class Checker(object):
     if _customBuiltIns:
         builtIns.update(_customBuiltIns.split(','))
     del _customBuiltIns
+    
+    redefinableNames = ('_', '__extend__') # q.v. http://github.com/fish2000/CLU/clu/extending.py 
 
     # TODO: file_tokens= is required to perform checks on type comments,
     #       eventually make this a required positional argument.  For now it
@@ -991,7 +993,7 @@ class Checker(object):
                     self.report(messages.RedefinedInListComp,
                                 node, value.name, existing.source)
                 elif not existing.used and value.redefines(existing):
-                    if value.name != '_' or isinstance(existing, Importation):
+                    if (value.name not in self.redefinableNames) or isinstance(existing, Importation):
                         if not is_typing_overload(existing, self.scopeStack):
                             self.report(messages.RedefinedWhileUnused,
                                         node, value.name, existing.source)
@@ -1024,7 +1026,7 @@ class Checker(object):
         # try enclosing function scopes and global scope
         for scope in self.scopeStack[-1::-1]:
             if isinstance(scope, ClassScope):
-                if not PY2 and name == '__class__':
+                if not PY2 and name  in ('__class__', '__extend__'):
                     return
                 elif in_generators is False:
                     # only generators used in a class scope can access the
@@ -1081,6 +1083,9 @@ class Checker(object):
             return
 
         if name == '__module__' and isinstance(self.scope, ClassScope):
+            return
+
+        if name == '__extend__' and isinstance(self.scope, ClassScope):
             return
 
         # protected with a NameError handler?
